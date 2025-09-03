@@ -8,28 +8,30 @@ exports.handler = async (event) => {
   const path = url.pathname;
 
   // Helper: return HTML that posts a message to the opener AND shows it on-screen for debug
-  const respond = (type, payload) => {
-    const msg = `authorization:github:${type}:${payload}`;
-    const safe = msg.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "text/html" },
-      body: `<!doctype html><meta charset="utf-8">
-<style>body{font-family:system-ui;padding:20px}</style>
-<p><strong>OAuth result</strong>: <code id="m">${safe}</code></p>
+const respond = (type, payload) => {
+  const msg = `authorization:github:${type}:${payload}`;
+  const safe = msg.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return {
+    statusCode: 200,
+    headers: { "Content-Type": "text/html" },
+    body: `<!doctype html><meta charset="utf-8">
+<style>body{font-family:system-ui;padding:24px;max-width:720px;margin:auto}</style>
+<h2>OAuth result</h2>
+<p><code id="m">${safe}</code></p>
+<p>This window will auto-close after a moment.</p>
 <script>
-  (function() {
+  (function () {
     try {
       if (window.opener && typeof window.opener.postMessage === "function") {
         window.opener.postMessage(${JSON.stringify(msg)}, "*");
-        // give the opener a moment to process, then close
-        setTimeout(() => window.close(), 50);
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {}
+    setTimeout(function(){ window.close(); }, 1500); // give time to see it
   })();
-</script>`,
-    };
+</script>`
   };
+};
+
 
   if (path.endsWith("/oauth/authorize")) {
     const state = url.searchParams.get("site_id") || "";
