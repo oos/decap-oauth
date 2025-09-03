@@ -1,1 +1,3 @@
-This function implements the exact two routes Decap/Netlify CMS expects: /oauth/authorize and /callback. It returns a tiny HTML page that calls window.opener.postMessage('authorization:github:success:<token>'), which the CMS listens for. (This is what the “provider” repos do under the hood.)
+# Netlify CMS OAuth Provider
+
+Serverless function to enable GitHub authentication for Netlify/Decap CMS.
