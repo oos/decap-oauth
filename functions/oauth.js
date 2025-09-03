@@ -9,8 +9,10 @@ exports.handler = async (event) => {
 
   // Helper: return HTML that posts a message to the opener AND shows it on-screen for debug
 const respond = (type, payload) => {
-  const msg = `authorization:github:${type}:${payload}`;
-  const safe = msg.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const strMsg = `authorization:github:${type}:${payload}`;
+  const objMsg = { provider: "github", type, token: payload }; // alt format some builds accept
+  const safe = strMsg.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
   return {
     statusCode: 200,
     headers: { "Content-Type": "text/html" },
@@ -23,14 +25,17 @@ const respond = (type, payload) => {
   (function () {
     try {
       if (window.opener && typeof window.opener.postMessage === "function") {
-        window.opener.postMessage(${JSON.stringify(msg)}, "*");
+        // send BOTH formats to maximize compatibility
+        window.opener.postMessage(${JSON.stringify(strMsg)}, "*");
+        window.opener.postMessage(${JSON.stringify(objMsg)}, "*");
       }
     } catch (e) {}
-    setTimeout(function(){ window.close(); }, 1500); // give time to see it
+    setTimeout(function(){ window.close(); }, 1500);
   })();
 </script>`
   };
 };
+
 
 
   if (path.endsWith("/oauth/authorize")) {
