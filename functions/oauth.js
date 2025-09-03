@@ -7,53 +7,70 @@ exports.handler = async (event) => {
   const url = new URL(event.rawUrl);
   const path = url.pathname;
 
-  // Helper to return HTML that posts a message back to the CMS window
-  const postBack = (msg) => ({
-    statusCode: 200,
-    headers: { "Content-Type": "text/html" },
-    body: `
-<!doctype html><html><body>
+  // Helper: return HTML that posts a message to the opener AND shows it on-screen for debug
+  const respond = (type, payload) => {
+    const msg = `authorization:github:${type}:${payload}`;
+    const safe = msg.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "text/html" },
+      body: `<!doctype html><meta charset="utf-8">
+<style>body{font-family:system-ui;padding:20px}</style>
+<p><strong>OAuth result</strong>: <code id="m">${safe}</code></p>
 <script>
   (function() {
-    function send(){ window.opener && window.opener.postMessage(${JSON.stringify(msg)}, "*"); window.close(); }
-    send();
+    try {
+      if (window.opener && typeof window.opener.postMessage === "function") {
+        window.opener.postMessage(${JSON.stringify(msg)}, "*");
+        // give the opener a moment to process, then close
+        setTimeout(() => window.close(), 50);
+      }
+    } catch (e) { /* ignore */ }
   })();
-</script>
-</body></html>`
-  });
+</script>`,
+    };
+  };
 
   if (path.endsWith("/oauth/authorize")) {
-    // CMS will include ?provider=github&site_id=<yoursite>
     const state = url.searchParams.get("site_id") || "";
     const redirectUri = `${url.origin}/callback`;
-    const authorize = `https://${GIT_HOSTNAME}/login/oauth/authorize?client_id=${encodeURIComponent(CLIENT_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${encodeURIComponent(state)}`;
+    const authorize = `https://${GIT_HOSTNAME}/login/oauth/authorize?client_id=${encodeURIComponent(
+      CLIENT_ID
+    )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${encodeURIComponent(
+      state
+    )}`;
     return { statusCode: 302, headers: { Location: authorize } };
   }
 
   if (path.endsWith("/callback")) {
     const code = url.searchParams.get("code");
-    if (!code) return postBack("authorization:github:error:missing_code");
+    if (!code) return respond("error", "missing_code");
 
     // Exchange code for token
     const tokenRes = await fetch(`https://${GIT_HOSTNAME}/login/oauth/access_token`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
         code,
-        redirect_uri: `${url.origin}/callback`
-      })
+        redirect_uri: `${url.origin}/callback`,
+      }),
     });
-    const data = await tokenRes.json();
 
-    if (data.error || !data.access_token) {
-      const reason = data.error_description || data.error || "unknown_error";
-      return postBack(`authorization:github:error:${reason}`);
+    let data;
+    try {
+      data = await tokenRes.json();
+    } catch {
+      return respond("error", "bad_token_response");
     }
 
-    // What the CMS expects:
-    return postBack(`authorization:github:success:${data.access_token}`);
+    if (!tokenRes.ok || data.error || !data.access_token) {
+      return respond("error", (data && (data.error_description || data.error)) || "unknown_error");
+    }
+
+    // Success: send to CMS
+    return respond("success", data.access_token);
   }
 
   return { statusCode: 404, body: "Not found" };
