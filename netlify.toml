@@ -1,0 +1,16 @@
+[build]
+  command = ""
+  publish = "public"
+
+[functions]
+  directory = "functions"
+
+[[redirects]]
+  from = "/oauth/authorize"
+  to = "/.netlify/functions/oauth"
+  status = 200
+
+[[redirects]]
+  from = "/callback"
+  to = "/.netlify/functions/oauth"
+  status = 200
