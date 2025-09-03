@@ -1,6 +1,6 @@
 [build]
   command = ""
-  publish = "public"
+  publish = "."
 
 [functions]
   directory = "functions"
